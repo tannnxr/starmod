@@ -1,50 +1,93 @@
 import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
+import { DragDropProvider } from "@dnd-kit/react";
+
 import "./App.css";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+import TopBar from "./components/TopBar";
+import ModManagementBar from "./components/ModManagementBar";
+import ModCard from "./components/ModCard";
+import Panel from "./components/Panel";
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+function App() {
+  const [installedMods, setInstalledMods] = useState<string[]>([
+    "Example Mod 1",
+    "Example Mod 2",
+    "Example Mod 3"
+  ]);
+  const [activeMods, setActiveMods] = useState<string[]>([]);
+
+  const findContainer = (modId: string) => {
+    if (installedMods.includes(modId)) return "installed-mods";
+    if (activeMods.includes(modId)) return "active-mods";
+    return null;
+  };
+
+  const moveMod = (modId: string, from: string, to: string) => {
+    if (from === to) return;
+
+    if (from === "installed-mods" && to === "active-mods") {
+      setInstalledMods((prev) => prev.filter((mod) => mod !== modId));
+      setActiveMods((prev) => [modId, ...prev]);
+      return;
+    }
+
+    if (from === "active-mods" && to === "installed-mods") {
+      setActiveMods((prev) => prev.filter((mod) => mod !== modId));
+      setInstalledMods((prev) => [modId, ...prev]);
+    }
+  };
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <DragDropProvider
+  onDragEnd={(event) => {
+    if (event.canceled) return;
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
+    const source = event.operation.source;
+    const target = event.operation.target;
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+    if (!source || !target) return;
+
+    const modName = String(source.id);
+    const targetId = String(target.id);
+
+    if (targetId === "active-mods") {
+      setInstalledMods((prev) => prev.filter((mod) => mod !== modName));
+      setActiveMods((prev) => [modName, ...prev]);
+    }
+
+    if (targetId === "installed-mods") {
+      setActiveMods((prev) => prev.filter((mod) => mod !== modName));
+      setInstalledMods((prev) => [modName, ...prev]);
+    }
+  }}
+>
+      <main className="container">
+        <TopBar />
+        <ModManagementBar />
+
+        <div className="split-panel">
+          <Panel id="installed-mods" className="installed-mods">
+            {installedMods.length > 0 ? (
+              installedMods.map((mod) => (
+                <ModCard key={mod} modName={mod} id={mod} />
+              ))
+            ) : (
+              <p>No Mods Installed</p>
+            )}
+          </Panel>
+
+          <Panel id="active-mods" className="active-mods">
+            {activeMods.length > 0 ? (
+              activeMods.map((mod) => (
+                <ModCard key={mod} modName={mod} id={mod} />
+              ))
+            ) : (
+              <p>No Active Mods</p>
+            )}
+          </Panel>
+        </div>
+      </main>
+    </DragDropProvider>
   );
 }
 
